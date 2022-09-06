@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/piquette/finance-go"
@@ -34,9 +33,13 @@ func newStock(symbol string) *Stock {
 	iter := chart.Get(params)
 
 	var priceArray []decimal.Decimal
-	//var growth5yrs float64 = 0
-	//var growth5yrsPercent float64 = 0
-	//var monthCounter int = 0
+	var priceDifArray []float64
+	var priceDifPerArray []int
+
+	var growth5yrs float64 = 0
+	var growth5yrsPercent float64 = 0
+	var potentialEarning float64 = 0
+	var potentialLoss float64 = 0
 
 	for iter.Next() {
 		priceArray = append(priceArray, iter.Bar().Close)
@@ -46,11 +49,40 @@ func newStock(symbol string) *Stock {
 		return nil
 	}
 
-	print("[" + q.Symbol + "] Price: " + fmt.Sprintf("%f", q.RegularMarketPrice))
+	for i, j := 0, len(priceArray)-1; i < j; i, j = i+1, j-1 {
+		priceArray[i], priceArray[j] = priceArray[j], priceArray[i]
+	}
 
-	return &Stock{*q, 0, 0, 0, 0}
+	for i := 0; i < 120; i++ {
+		var one, _ = priceArray[i].Float64()
+		var two, _ = priceArray[i+60].Float64()
+		var result = one - two
+
+		if result > 0 {
+			priceDifPerArray = append(priceDifPerArray, 1)
+		} else {
+			priceDifPerArray = append(priceDifPerArray, 0)
+		}
+
+		priceDifArray = append(priceDifArray, result)
+	}
+
+	for i := 0; i < len(priceDifArray); i++ {
+		growth5yrs += priceDifArray[i]
+		growth5yrsPercent += float64(priceDifPerArray[i])
+	}
+
+	growth5yrs /= float64(len(priceDifArray))
+	growth5yrsPercent /= float64(len(priceDifPerArray))
+
+	potentialEarning = growth5yrs + (q.TrailingAnnualDividendYield * 5)
+	potentialLoss = q.Quote.RegularMarketPrice - (q.TrailingAnnualDividendYield * 5)
+
+	println("[" + q.Symbol + "] Loaded...")
+
+	return &Stock{*q, growth5yrs, growth5yrsPercent, potentialEarning, potentialLoss}
 }
 
 func main() {
-	newStock("f")
+	newStock("abr")
 }
