@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -24,6 +25,7 @@ type Stock struct {
 	potentialEarning  float64
 	potentialLoss     float64
 	risk              float64
+	etf               bool
 }
 
 func newStock(symbol string) *Stock {
@@ -34,6 +36,12 @@ func newStock(symbol string) *Stock {
 
 	if q == nil {
 		return nil
+	}
+
+	etf := false
+
+	if q.QuoteType == finance.QuoteTypeETF {
+		etf = true
 	}
 
 	params := &chart.Params{
@@ -97,16 +105,18 @@ func newStock(symbol string) *Stock {
 
 	risk = potentialLoss / potentialEarning
 
-	if growth5yrs < 0 || growth5yrsPercent < 0.8 || q.ForwardPE > 25 || q.ForwardPE == 0 {
+	if growth5yrs < 0 || growth5yrsPercent < 0.8 || q.ForwardPE > 25 || (q.ForwardPE == 0 && !etf) {
 		return nil
 	}
 
 	println("[" + q.Symbol + "] Loaded...")
 
-	return &Stock{*q, growth5yrs, growth5yrsPercent, potentialEarning, potentialLoss, risk}
+	return &Stock{*q, growth5yrs, growth5yrsPercent, potentialEarning, potentialLoss, risk, etf}
 }
 
 func main() {
+	startTime := time.Now()
+
 	var stocks []Stock
 
 	content, err := ioutil.ReadFile(os.Args[1])
@@ -140,10 +150,11 @@ func main() {
 	excel.SetCellValue("Sheet1", "H1", "Potential Income")
 	excel.SetCellValue("Sheet1", "I1", "Potential Loss")
 	excel.SetCellValue("Sheet1", "J1", "Risk")
+	excel.SetCellValue("Sheet1", "K1", "ETF")
 
 	excel.SetColWidth("Sheet1", "A", "J", 20)
 
-	cellAlphabet := "ABCDEFGHIJ"
+	cellAlphabet := "ABCDEFGHIJK"
 
 	for i := 0; i < len(stocks); i++ {
 		for _, c := range cellAlphabet {
@@ -179,10 +190,17 @@ func main() {
 			if c == 'J' {
 				excel.SetCellValue("Sheet1", index, stocks[i].risk)
 			}
+			if c == 'K' {
+				if stocks[i].etf {
+					excel.SetCellValue("Sheet1", index, "*")
+				}
+			}
 		}
 	}
 
 	if err := excel.SaveAs(os.Args[2]); err != nil {
 		log.Fatal(err)
 	}
+
+	println("Loaded " + fmt.Sprint(len(stocks)) + " in " + fmt.Sprint(time.Since(startTime)))
 }
