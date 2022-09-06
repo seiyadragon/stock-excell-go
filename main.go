@@ -1,8 +1,12 @@
 package main
 
 import (
+	"io/ioutil"
 	"log"
+	"os"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/piquette/finance-go"
@@ -25,7 +29,11 @@ type Stock struct {
 func newStock(symbol string) *Stock {
 	q, err := equity.Get(symbol)
 	if err != nil {
-		return (nil)
+		return nil
+	}
+
+	if q == nil {
+		return nil
 	}
 
 	params := &chart.Params{
@@ -58,7 +66,11 @@ func newStock(symbol string) *Stock {
 		priceArray[i], priceArray[j] = priceArray[j], priceArray[i]
 	}
 
-	for i := 0; i < 120; i++ {
+	if len(priceArray) < 120 {
+		return nil
+	}
+
+	for i := 0; i < 60; i++ {
 		var one, _ = priceArray[i].Float64()
 		var two, _ = priceArray[i+60].Float64()
 		var result = one - two
@@ -81,11 +93,11 @@ func newStock(symbol string) *Stock {
 	growth5yrsPercent /= float64(len(priceDifPerArray))
 
 	potentialEarning = growth5yrs + (q.TrailingAnnualDividendRate * 5)
-	potentialLoss = q.Quote.RegularMarketPrice - (q.TrailingAnnualDividendYield * 5)
+	potentialLoss = q.Quote.RegularMarketPrice - (q.TrailingAnnualDividendRate * 5)
 
 	risk = potentialLoss / potentialEarning
 
-	if growth5yrs < 0 || growth5yrsPercent < 0.8 || q.ForwardPE > 25 {
+	if growth5yrs < 0 || growth5yrsPercent < 0.8 || q.ForwardPE > 25 || q.ForwardPE == 0 {
 		return nil
 	}
 
@@ -97,9 +109,25 @@ func newStock(symbol string) *Stock {
 func main() {
 	var stocks []Stock
 
-	stocks = append(stocks, *newStock("abr"))
-	stocks = append(stocks, *newStock("F"))
-	stocks = append(stocks, *newStock("msft"))
+	content, err := ioutil.ReadFile(os.Args[1])
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	stockNames := strings.Split(string(content), "\n")
+
+	for i := 0; i < len(stockNames); i++ {
+		stock := newStock(stockNames[i])
+
+		if stock != nil {
+			stocks = append(stocks, *stock)
+		}
+	}
+
+	sort.Slice(stocks, func(i, j int) bool {
+		return stocks[i].risk < stocks[j].risk
+	})
 
 	excel := excelize.NewFile()
 	excel.SetCellValue("Sheet1", "A1", "Symbol")
@@ -128,7 +156,7 @@ func main() {
 				excel.SetCellValue("Sheet1", index, stocks[i].quote.Quote.RegularMarketPrice)
 			}
 			if c == 'C' {
-				excel.SetCellValue("Sheet1", index, stocks[i].quote.TrailingAnnualDividendYield)
+				excel.SetCellValue("Sheet1", index, stocks[i].quote.TrailingAnnualDividendYield*100)
 			}
 			if c == 'D' {
 				excel.SetCellValue("Sheet1", index, stocks[i].quote.TrailingAnnualDividendRate*5)
@@ -140,7 +168,7 @@ func main() {
 				excel.SetCellValue("Sheet1", index, stocks[i].growth5yrs)
 			}
 			if c == 'G' {
-				excel.SetCellValue("Sheet1", index, stocks[i].growth5yrsPercent)
+				excel.SetCellValue("Sheet1", index, stocks[i].growth5yrsPercent*100)
 			}
 			if c == 'H' {
 				excel.SetCellValue("Sheet1", index, stocks[i].potentialEarning)
@@ -154,7 +182,7 @@ func main() {
 		}
 	}
 
-	if err := excel.SaveAs("simple.xlsx"); err != nil {
+	if err := excel.SaveAs(os.Args[2]); err != nil {
 		log.Fatal(err)
 	}
 }
