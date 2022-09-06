@@ -42,8 +42,6 @@ func newStock(symbol string) *Stock {
 		priceArray = append(priceArray, iter.Bar().Close)
 	}
 
-	println(len(priceArray))
-
 	if err := iter.Err(); err != nil {
 		return nil
 	}
