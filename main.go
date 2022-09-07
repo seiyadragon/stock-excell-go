@@ -117,9 +117,23 @@ func newStock(symbol string) *Stock {
 func main() {
 	startTime := time.Now()
 
+	var stockFile string
+	var excelFile string
+
+	if len(os.Args) > 1 {
+		stockFile = os.Args[1]
+		excelFile = os.Args[2]
+	} else {
+		println("Select file containing stock symbols...")
+		fmt.Scanln(&stockFile)
+
+		println("Select location to save excel sheet...")
+		fmt.Scanln(&excelFile)
+	}
+
 	var stocks []Stock
 
-	content, err := ioutil.ReadFile(os.Args[1])
+	content, err := ioutil.ReadFile(stockFile)
 
 	if err != nil {
 		log.Fatal(err)
@@ -198,7 +212,7 @@ func main() {
 		}
 	}
 
-	if err := excel.SaveAs(os.Args[2]); err != nil {
+	if err := excel.SaveAs(excelFile); err != nil {
 		log.Fatal(err)
 	}
 
