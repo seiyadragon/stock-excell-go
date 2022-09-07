@@ -25,7 +25,7 @@ type Stock struct {
 	potentialEarning  float64
 	potentialLoss     float64
 	risk              float64
-	etf               bool
+	isEtf             bool
 }
 
 func newStock(symbol string) *Stock {
@@ -38,10 +38,10 @@ func newStock(symbol string) *Stock {
 		return nil
 	}
 
-	etf := false
+	isEtf := false
 
 	if q.QuoteType == finance.QuoteTypeETF {
-		etf = true
+		isEtf = true
 	}
 
 	params := &chart.Params{
@@ -105,13 +105,13 @@ func newStock(symbol string) *Stock {
 
 	risk = potentialLoss / potentialEarning
 
-	if growth5yrs < 0 || growth5yrsPercent < 0.8 || q.ForwardPE > 25 || (q.ForwardPE == 0 && !etf) {
+	if growth5yrs < 0 || growth5yrsPercent < 0.8 || q.ForwardPE > 25 || (q.ForwardPE == 0 && !isEtf) {
 		return nil
 	}
 
 	println("[" + q.Symbol + "] Loaded...")
 
-	return &Stock{*q, growth5yrs, growth5yrsPercent, potentialEarning, potentialLoss, risk, etf}
+	return &Stock{*q, growth5yrs, growth5yrsPercent, potentialEarning, potentialLoss, risk, isEtf}
 }
 
 func main() {
@@ -191,7 +191,7 @@ func main() {
 				excel.SetCellValue("Sheet1", index, stocks[i].risk)
 			}
 			if c == 'K' {
-				if stocks[i].etf {
+				if stocks[i].isEtf {
 					excel.SetCellValue("Sheet1", index, "*")
 				}
 			}
